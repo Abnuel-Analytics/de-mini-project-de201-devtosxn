@@ -1,0 +1,24 @@
+name: checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # so the terraform_fmt hook can run in CI too (parity with local)
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+      - run: pip install pre-commit
+      # run every hook against all files — the same checks that run locally
+      - run: pre-commit run --all-files --show-diff-on-failure
