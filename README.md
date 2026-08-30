@@ -58,6 +58,98 @@ so the checks hold even if someone commits with `--no-verify`. One source of tru
 - **Learner (anchor):** `{{LEARNER}}` — runs the mini-project and merges.
 - **Learners:** see the week's plan posted in the cohort discussion.
 
+## Session 1 — Python ETL pipeline
+
+The pipeline lives in `py-project/` and follows the standard extract → transform → load split.
+
+```text
+py-project/
+├── src/
+│   ├── extract.py              ← read CSV / parquet / JSON, or call an API
+│   ├── transform.py            ← type casting + custom business transformations
+│   ├── load.py                 ← write CSV / parquet, partitioned or not
+│   ├── nyc_trips_pipeline.py   ← the runnable pipeline (argparse CLI)
+│   └── generate_sample_data.py ← seeds the gitignored raw sample
+├── test/                       ← pytest unit tests
+└── test_data/                  ← small fixtures for the extract tests
+```
+
+### Running the pipeline
+
+All commands run from `py-project/`. The raw sample is gitignored, so generate it first:
+
+```bash
+uv sync
+cd py-project
+uv run python -m src.generate_sample_data
+```
+
+Then run the pipeline. Every path and option is a CLI argument:
+
+```bash
+# unpartitioned — one parquet file under data/processed
+uv run python -m src.nyc_trips_pipeline
+
+# partitioned by payment type
+uv run python -m src.nyc_trips_pipeline \
+  --output-path demo_data/data/processed/yellow_taxi_jan2024_partitioned \
+  --partition-by payment_type
+
+# partitioned CSV, two partition columns
+uv run python -m src.nyc_trips_pipeline \
+  --as-file-type csv \
+  --output-path demo_data/data/processed/yellow_taxi_jan2024_csv_partitioned \
+  --partition-by payment_type vendor_id
+```
+
+`uv run python -m src.nyc_trips_pipeline --help` lists every flag: `--input-path`,
+`--input-file-type`, `--output-path`, `--as-file-type`, `--partition-by` and `--chunksize`.
+
+### Transformations
+
+`transform_data(data, transformations)` takes a `{column: transformation}` mapping.
+
+| Transformation | Example | What it does |
+|----------------|---------|--------------|
+| `"uppercase"` / `"lowercase"` / `"strip"` | `{"name": "strip"}` | String cleaning. |
+| `("type", "int")` / `("type", "float")` | `{"age": ("type", "int")}` | Numeric casting. |
+| `("type", "date")` | `{"date": ("type", "date")}` | Parses to datetime; format inferred. |
+| `("type", "date", fmt)` | `{"date": ("type", "date", "%d/%m/%Y")}` | Parses using an explicit format. |
+| `("age", source)` | `{"age": ("age", "date_of_birth")}` | **Custom** — completed years, as of today. |
+| `("age", source, as_of)` | `{"age": ("age", "date_of_birth", "2026-01-01")}` | **Custom** — age at a given date. |
+| `("duration", start, end)` | `{"mins": ("duration", "pickup", "dropoff")}` | **Custom** — elapsed minutes between two datetimes. |
+| `("duration", start, end, unit)` | `{"hrs": ("duration", "pickup", "dropoff", "hours")}` | **Custom** — `seconds`, `minutes`, `hours` or `days`. |
+| `("round", n)` | `{"total_amount": ("round", 2)}` | **Custom** — round a numeric column. |
+
+`age` and `duration` derive a *new* column, so the target need not already exist. Every
+other transformation is applied in place. Unparseable dates become `NaT` and are logged
+rather than raising, so one bad row cannot fail the whole run.
+
+### Partitioning
+
+`load_data(..., partition_by=...)` accepts one column or a list. When partitioning, the
+output path is a **directory** and the writer produces Hive-style layout — parquet via
+`partition_cols`, CSV via one `part.csv` per partition:
+
+```text
+yellow_taxi_jan2024_csv_partitioned/
+└── payment_type=cash/
+    └── vendor_id=1/
+        └── part.csv
+```
+
+The partition values live in the directory names and are dropped from the files themselves.
+
+### Tests
+
+```bash
+uv run pytest -q
+```
+
+Runs from the repository root or from `py-project/` — `pythonpath` and `testpaths` are set
+in `pyproject.toml`, and the fixtures are anchored on the test files rather than the working
+directory.
+
 ## How the submission works
 
 1. Each member works on a **branch** (`feat/<your-handle>-<thing>`).
