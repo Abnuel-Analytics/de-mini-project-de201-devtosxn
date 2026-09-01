@@ -8,12 +8,7 @@ Update date: 2026-08-29
 
 import pandas as pd
 import pytest
-from src.load import (
-    load_data,
-    normalise_partition_by,
-    validate_partition_columns,
-    write_partitioned_csv,
-)
+from src.load import load_data, write_partitioned_csv
 
 # ------------------------------------------------------------------- load_data
 
@@ -93,40 +88,6 @@ def test_load_rejects_unsupported_file_type(tmp_path):
 def test_load_rejects_unknown_partition_column(tmp_path, trips_df):
     with pytest.raises(ValueError, match="Partition column"):
         load_data(trips_df, tmp_path / "out", partition_by="does_not_exist")
-
-
-# -------------------------------------------------------- normalise_partition_by
-
-
-def test_normalise_partition_by_none():
-    assert normalise_partition_by(None) == []
-
-
-def test_normalise_partition_by_empty_string():
-    assert normalise_partition_by("") == []
-
-
-def test_normalise_partition_by_single_string():
-    assert normalise_partition_by("payment_type") == ["payment_type"]
-
-
-def test_normalise_partition_by_list():
-    assert normalise_partition_by(["payment_type", "vendor_id"]) == [
-        "payment_type",
-        "vendor_id",
-    ]
-
-
-# ---------------------------------------------------- validate_partition_columns
-
-
-def test_validate_partition_columns_passes_for_known_columns(trips_df):
-    assert validate_partition_columns(trips_df, ["payment_type"]) is None
-
-
-def test_validate_partition_columns_raises_for_unknown_columns(trips_df):
-    with pytest.raises(ValueError, match=r"\['nope'\]"):
-        validate_partition_columns(trips_df, ["payment_type", "nope"])
 
 
 # ------------------------------------------------------------ write_partitioned_csv

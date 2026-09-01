@@ -112,62 +112,33 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def run_pipeline(
-    input_path,
-    output_path,
-    input_file_type="csv",
-    as_file_type="parquet",
-    partition_by=None,
-    chunksize=None,
-):
-    """
-    Runs the full extract -> transform -> load pipeline.
-
-    Args:
-        input_path (pathlib.Path): The raw trips file to read.
-        output_path (pathlib.Path): The processed file or partition directory.
-        input_file_type (str, optional): Format of the raw file. Defaults to "csv".
-        as_file_type (str, optional): Format to write. Defaults to "parquet".
-        partition_by (list, optional): Column(s) to partition by. Defaults to None.
-        chunksize (int, optional): Rows per CSV write chunk. Defaults to None.
-
-    Returns:
-        pathlib.Path: The file or directory that was written.
-    """
-    logger.info(f"Extracting {input_file_type} data from {input_path}")
-    # chunksize is a write-side concern here — the transformations need the whole
-    # frame, so the extract always returns a single DataFrame.
-    data = extract_data_from_file(input_path, file_type=input_file_type, chunksize=None)
-
-    logger.info(f"Transforming {len(data)} row(s)")
-    transformed = transform_data(data, transformations=TRANSFORMATIONS)
-
-    logger.info(f"Loading to {output_path} (partition_by={partition_by})")
-    return load_data(
-        transformed,
-        file_path=output_path,
-        as_file_type=as_file_type,
-        partition_by=partition_by,
-        chunksize=chunksize,
-    )
-
-
 def main(argv=None):
     """
-    CLI entry point for the NYC trips pipeline.
+    Runs the full extract -> transform -> load pipeline from the command line.
 
     Args:
-        argv (list, optional): The arguments to parse. Defaults to None.
+        argv (list, optional): The arguments to parse. Defaults to None, which
+            reads them from sys.argv.
 
     Returns:
         pathlib.Path: The file or directory that was written.
     """
     args = parse_args(argv)
 
-    output = run_pipeline(
-        input_path=args.input_path,
-        output_path=args.output_path,
-        input_file_type=args.input_file_type,
+    logger.info(f"Extracting {args.input_file_type} data from {args.input_path}")
+    # chunksize is a write-side concern here — the transformations need the whole
+    # frame, so the extract always returns a single DataFrame.
+    data = extract_data_from_file(
+        args.input_path, file_type=args.input_file_type, chunksize=None
+    )
+
+    logger.info(f"Transforming {len(data)} row(s)")
+    transformed = transform_data(data, transformations=TRANSFORMATIONS)
+
+    logger.info(f"Loading to {args.output_path} (partition_by={args.partition_by})")
+    output = load_data(
+        transformed,
+        file_path=args.output_path,
         as_file_type=args.as_file_type,
         partition_by=args.partition_by,
         chunksize=args.chunksize,

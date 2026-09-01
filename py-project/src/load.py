@@ -15,39 +15,6 @@ logger = logging.getLogger(__name__)
 SUPPORTED_FILE_TYPES = ("csv", "parquet")
 
 
-def normalise_partition_by(partition_by):
-    """
-    Normalises the `partition_by` argument into a list of column names.
-
-    Args:
-        partition_by (str or list or None): One column name, several, or None.
-
-    Returns:
-        list: The partition columns, empty when no partitioning was requested.
-    """
-    if not partition_by:
-        return []
-    if isinstance(partition_by, str):
-        return [partition_by]
-    return list(partition_by)
-
-
-def validate_partition_columns(data, partition_columns):
-    """
-    Checks that every partition column exists on the DataFrame.
-
-    Args:
-        data (pd.DataFrame): The data about to be written.
-        partition_columns (list): The columns to partition by.
-
-    Raises:
-        ValueError: If any partition column is missing from the data.
-    """
-    missing = [column for column in partition_columns if column not in data.columns]
-    if missing:
-        raise ValueError(f"Partition column(s) {missing} not found in data")
-
-
 def write_partitioned_csv(data, dir_path, partition_columns, chunksize=None):
     """
     Writes a DataFrame to Hive-style partitioned CSV files.
@@ -118,8 +85,17 @@ def load_data(data, file_path, as_file_type="csv", partition_by=None, chunksize=
     if as_file_type not in SUPPORTED_FILE_TYPES:
         raise ValueError("Unsupported file type. Use 'csv' or 'parquet'.")
 
-    partition_columns = normalise_partition_by(partition_by)
-    validate_partition_columns(data, partition_columns)
+    # partition_by may be one column name or several — normalise to a list.
+    if not partition_by:
+        partition_columns = []
+    elif isinstance(partition_by, str):
+        partition_columns = [partition_by]
+    else:
+        partition_columns = list(partition_by)
+
+    missing = [column for column in partition_columns if column not in data.columns]
+    if missing:
+        raise ValueError(f"Partition column(s) {missing} not found in data")
 
     output_path = pathlib.Path(file_path)
     # Partitioned writes create the output directory itself; unpartitioned ones
