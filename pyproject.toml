@@ -24,4 +24,4 @@ packages = ["py-project/src"]
 # Tests import the pipeline modules as `src.<module>`, so `py-project` is the
 # import root. testpaths keeps `pytest` working from the repository root.
 pythonpath = ["py-project"]
-testpaths = ["py-project/test"]
+testpaths = ["py-project/tests"]
