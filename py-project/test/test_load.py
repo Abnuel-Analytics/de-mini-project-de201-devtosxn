@@ -90,6 +90,20 @@ def test_load_rejects_unknown_partition_column(tmp_path, trips_df):
         load_data(trips_df, tmp_path / "out", partition_by="does_not_exist")
 
 
+def test_load_rejects_a_file_path_when_partitioning(tmp_path, trips_df):
+    output = tmp_path / "already_a_file.csv"
+    output.touch()
+    with pytest.raises(ValueError, match="existing file"):
+        load_data(trips_df, output, partition_by="payment_type")
+
+
+def test_load_rejects_a_directory_path_when_not_partitioning(tmp_path, trips_df):
+    output = tmp_path / "already_a_dir"
+    output.mkdir()
+    with pytest.raises(ValueError, match="is a directory"):
+        load_data(trips_df, output)
+
+
 # ------------------------------------------------------------ write_partitioned_csv
 
 

@@ -21,7 +21,7 @@ def write_partitioned_csv(data, dir_path, partition_columns, chunksize=None):
 
     Args:
         data (pd.DataFrame): The data to write.
-        dir_path (str or pathlib.Path): The dataset directory itself — not its
+        dir_path (str or pathlib.Path): The dataset directory itself, not its
             parent. It is created if it does not exist, and one
             `<column>=<value>` sub-directory per partition is written inside it.
         partition_columns (list): The columns to partition by. Their values
@@ -71,7 +71,7 @@ def write_partitioned_csv(data, dir_path, partition_columns, chunksize=None):
 
         part_file = partition_dir / "part.csv"
         # The partition values live in the directory names, so drop the columns
-        # from the file itself — this is what parquet partitioning does too.
+        # from the file itself, which is what parquet partitioning does too.
         group.drop(columns=partition_columns).to_csv(
             part_file, index=False, encoding="utf-8", chunksize=chunksize
         )
@@ -91,18 +91,25 @@ def load_data(data, file_path, as_file_type="csv", partition_by=None, chunksize=
             given this is a directory; otherwise it is a single file.
         as_file_type (str, optional): "csv" or "parquet". Defaults to "csv".
         partition_by (str or list, optional): The column(s) to partition by.
-            Defaults to None.
+            Accepts a single column name ("payment_type"), a list of them
+            (["payment_type", "vendor_id"]), or None/[] for no partitioning.
+            Defaults to None. Every name given must exist in `data`.
         chunksize (int, optional): The number of rows to include in each chunk.
             Defaults to None.
 
     Returns:
         pathlib.Path: The file or directory that was written.
+
+    Raises:
+        ValueError: If `as_file_type` is unsupported, a partition column is not
+            in `data`, or `file_path` is the wrong kind of path for the write.
     """
 
     if as_file_type not in SUPPORTED_FILE_TYPES:
         raise ValueError("Unsupported file type. Use 'csv' or 'parquet'.")
 
-    # partition_by may be one column name or several — normalise to a list.
+    # Callers pass one column name, several, or nothing. Normalise all three
+    # to a list so the rest of the function has a single shape to work with.
     if not partition_by:
         partition_columns = []
     elif isinstance(partition_by, str):
@@ -115,6 +122,21 @@ def load_data(data, file_path, as_file_type="csv", partition_by=None, chunksize=
         raise ValueError(f"Partition column(s) {missing} not found in data")
 
     output_path = pathlib.Path(file_path)
+
+    # A partitioned write needs a directory and an unpartitioned one needs a
+    # file, so reject a path that is already the other kind rather than letting
+    # mkdir or the writer fail further down with a less obvious error.
+    if partition_columns and output_path.is_file():
+        raise ValueError(
+            f"{output_path} is an existing file, but partitioning by "
+            f"{partition_columns} writes a directory"
+        )
+    if not partition_columns and output_path.is_dir():
+        raise ValueError(
+            f"{output_path} is a directory, but an unpartitioned write needs a "
+            f"file path, e.g. {output_path / f'data.{as_file_type}'}"
+        )
+
     # Partitioned writes create the output directory itself; unpartitioned ones
     # only need the parent directory to exist.
     parent = output_path if partition_columns else output_path.parent
