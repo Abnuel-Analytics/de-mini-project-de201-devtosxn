@@ -73,10 +73,16 @@ def test_load_returns_the_output_path(tmp_path):
     assert load_data(df, output) == output
 
 
-def test_load_honours_chunksize(tmp_path, trips_df):
-    output = tmp_path / "chunked.csv"
-    load_data(trips_df, output, as_file_type="csv", chunksize=2)
-    assert len(pd.read_csv(output)) == len(trips_df)
+def test_load_chunksize_does_not_change_the_output(tmp_path, trips_df):
+    """chunksize only affects how the write is buffered, never what lands on disk."""
+    chunked = tmp_path / "chunked.csv"
+    whole = tmp_path / "whole.csv"
+    load_data(trips_df, chunked, as_file_type="csv", chunksize=2)
+    load_data(trips_df, whole, as_file_type="csv")
+
+    assert chunked.read_text() == whole.read_text()
+    # A chunked write must not repeat the header once per chunk.
+    assert chunked.read_text().count("trip_id") == 1
 
 
 def test_load_rejects_unsupported_file_type(tmp_path):
