@@ -119,9 +119,6 @@ def main(argv=None):
     Args:
         argv (list, optional): The arguments to parse. Defaults to None, which
             reads them from sys.argv.
-
-    Returns:
-        pathlib.Path: The file or directory that was written.
     """
     args = parse_args(argv)
 
@@ -144,9 +141,9 @@ def main(argv=None):
         chunksize=args.chunksize,
     )
 
-    logger.info(f"Pipeline complete — output at {output}")
-    return output
+    logger.info(f"Pipeline complete, output at {output}")
 
 
 if __name__ == "__main__":
+    # argv stays None, so argparse reads sys.argv.
     main()
