@@ -19,22 +19,39 @@ def write_partitioned_csv(data, dir_path, partition_columns, chunksize=None):
     """
     Writes a DataFrame to Hive-style partitioned CSV files.
 
-    `dir_path` is treated as a directory, and one `part.csv` is written per
-    combination of partition values, e.g.:
-
-        processed/trips_csv/payment_type=cash/part.csv
-
     Args:
         data (pd.DataFrame): The data to write.
-        dir_path (str or pathlib.Path): The root directory of the dataset.
-        partition_columns (list): The columns to partition by.
+        dir_path (str or pathlib.Path): The dataset directory itself — not its
+            parent. It is created if it does not exist, and one
+            `<column>=<value>` sub-directory per partition is written inside it.
+        partition_columns (list): The columns to partition by. Their values
+            become the sub-directory names and are dropped from the CSVs.
         chunksize (int, optional): Rows per write chunk. Defaults to None.
 
     Returns:
-        list: The paths of the files written.
+        int: The number of partition files written.
+
+    Example:
+        A frame with payment_type in {cash, credit_card} and vendor_id in {1, 2}::
+
+            write_partitioned_csv(
+                trips, "demo_data/data/processed/trips_csv",
+                ["payment_type", "vendor_id"],
+            )
+
+        writes four files and returns 4::
+
+            demo_data/data/processed/trips_csv/   <- dir_path
+            |-- payment_type=cash/
+            |   |-- vendor_id=1/part.csv
+            |   `-- vendor_id=2/part.csv
+            `-- payment_type=credit_card/
+                |-- vendor_id=1/part.csv
+                `-- vendor_id=2/part.csv
     """
     root = pathlib.Path(dir_path)
-    written = []
+    # Only the count is needed downstream, so the paths are not accumulated.
+    written = 0
 
     # group_keys is a scalar for a single partition column and a tuple for many,
     # so normalise it to a tuple before building the directory name.
@@ -58,9 +75,9 @@ def write_partitioned_csv(data, dir_path, partition_columns, chunksize=None):
         group.drop(columns=partition_columns).to_csv(
             part_file, index=False, encoding="utf-8", chunksize=chunksize
         )
-        written.append(part_file)
+        written += 1
 
-    logger.info(f"Wrote {len(written)} CSV partition(s) under {root}")
+    logger.info(f"Wrote {written} CSV partition(s) under {root}")
     return written
 
 

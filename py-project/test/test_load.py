@@ -93,10 +93,13 @@ def test_load_rejects_unknown_partition_column(tmp_path, trips_df):
 # ------------------------------------------------------------ write_partitioned_csv
 
 
-def test_write_partitioned_csv_returns_one_path_per_partition(tmp_path, trips_df):
-    written = write_partitioned_csv(trips_df, tmp_path / "out", ["payment_type"])
-    assert len(written) == 2
-    assert all(path.exists() for path in written)
+def test_write_partitioned_csv_returns_the_number_of_partitions(tmp_path, trips_df):
+    root = tmp_path / "out"
+    assert write_partitioned_csv(trips_df, root, ["payment_type"]) == 2
+    assert sorted(path.name for path in root.iterdir()) == [
+        "payment_type=cash",
+        "payment_type=credit_card",
+    ]
 
 
 def test_write_partitioned_csv_keeps_every_row(tmp_path, trips_df):
