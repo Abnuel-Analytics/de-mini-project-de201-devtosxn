@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "ipykernel>=7.3.0",
+    "jafgen>=0.4.14",
     "pandas>=3.0.5",
+    "psycopg2-binary>=2.9.12",
     "pyarrow>=25.0.1",
     "pytest>=9.1.1",
     "requests>=2.34.2",
