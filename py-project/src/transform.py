@@ -63,6 +63,16 @@ def calculate_age(series, as_of=None):
 
     Returns:
         pd.Series: The age in completed years, as a nullable integer.
+
+    Example:
+        Pin the reference date so the result does not drift as time passes::
+
+            >>> dates = pd.Series(["1990-05-20", "2000-01-01"])
+            >>> calculate_age(dates, as_of="2026-01-01").tolist()
+            [35, 26]
+
+        The first person has not had their birthday by 1 January, so they are
+        35 rather than 36. Omitting `as_of` measures against today instead.
     """
     reference = (
         pd.Timestamp.today().normalize() if as_of is None else pd.Timestamp(as_of)
