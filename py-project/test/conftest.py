@@ -46,6 +46,27 @@ def people_df():
 
 
 @pytest.fixture
+def string_ages_df():
+    """A frame whose numeric column is still text, for the type transformations."""
+    return pd.DataFrame({"name": ["Abisola", "Segun"], "age": ["23", "32"]})
+
+
+@pytest.fixture
+def name_only_df():
+    """A single-column frame, for the transformations that should be skipped."""
+    return pd.DataFrame({"name": ["Abisola"]})
+
+
+@pytest.fixture
+def two_hour_span():
+    """A start and an end timestamp exactly two hours apart."""
+    return (
+        pd.Series(["2024-01-01 10:00:00"]),
+        pd.Series(["2024-01-01 12:00:00"]),
+    )
+
+
+@pytest.fixture
 def trips_df():
     """A small trips DataFrame with two partition-friendly, low-cardinality columns."""
     return pd.DataFrame(

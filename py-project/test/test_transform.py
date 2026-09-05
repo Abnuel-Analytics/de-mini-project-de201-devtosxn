@@ -19,34 +19,28 @@ from src.transform import (
 # ---------------------------------------------------------------- transform_data
 
 
-def test_tranform_logic_uppercase():
-    df = pd.DataFrame({"name": ["Abisola", "Segun"], "age": [23, 32]})
-    tf_df = transform_data(df, transformations={"name": "uppercase"})
-    assert all(name.isupper() for name in tf_df["name"].values)
+@pytest.mark.parametrize(
+    ("names", "transformation", "expected"),
+    [
+        (["Abisola", "Segun"], "uppercase", ["ABISOLA", "SEGUN"]),
+        (["ABISOLA", "SEGUN"], "lowercase", ["abisola", "segun"]),
+        (["  Abisola  ", "\tSegun\n"], "strip", ["Abisola", "Segun"]),
+    ],
+)
+def test_tranform_logic_string_transformations(names, transformation, expected):
+    df = pd.DataFrame({"name": names, "age": [23, 32]})
+    tf_df = transform_data(df, transformations={"name": transformation})
+    assert tf_df["name"].tolist() == expected
 
 
-def test_tranform_logic_lowercase():
-    df = pd.DataFrame({"name": ["ABISOLA", "SEGUN"], "age": [23, 32]})
-    tf_df = transform_data(df, transformations={"name": "lowercase"})
-    assert all(name.islower() for name in tf_df["name"].values)
-
-
-def test_tranform_logic_strip():
-    df = pd.DataFrame({"name": ["  Abisola  ", "\tSegun\n"], "age": [23, 32]})
-    tf_df = transform_data(df, transformations={"name": "strip"})
-    assert tf_df["name"].tolist() == ["Abisola", "Segun"]
-
-
-def test_tranform_logic_int_type():
-    df = pd.DataFrame({"name": ["Abisola", "Segun"], "age": ["23", "32"]})
-    tf_df = transform_data(df, transformations={"age": ("type", "int")})
+def test_tranform_logic_int_type(string_ages_df):
+    tf_df = transform_data(string_ages_df, transformations={"age": ("type", "int")})
     assert tf_df["age"].dtype.kind == "i"
     assert tf_df["age"].tolist() == [23, 32]
 
 
-def test_tranform_logic_float_type():
-    df = pd.DataFrame({"name": ["Abisola", "Segun"], "age": ["23", "32"]})
-    tf_df = transform_data(df, transformations={"age": ("type", "float")})
+def test_tranform_logic_float_type(string_ages_df):
+    tf_df = transform_data(string_ages_df, transformations={"age": ("type", "float")})
     assert tf_df["age"].dtype.kind == "f"
     assert tf_df["age"].tolist() == [23.0, 32.0]
 
@@ -79,16 +73,14 @@ def test_tranform_logic_date_type_bad_value_becomes_nat():
     assert pd.isna(tf_df["date"].iloc[1])
 
 
-def test_tranform_logic_unsupported_transformation_is_skipped(caplog):
-    df = pd.DataFrame({"name": ["Abisola"]})
-    tf_df = transform_data(df, transformations={"name": "reverse"})
+def test_tranform_logic_unsupported_transformation_is_skipped(caplog, name_only_df):
+    tf_df = transform_data(name_only_df, transformations={"name": "reverse"})
     assert tf_df["name"].tolist() == ["Abisola"]
     assert "Unsupported transformation" in caplog.text
 
 
-def test_tranform_logic_missing_column_is_skipped(caplog):
-    df = pd.DataFrame({"name": ["Abisola"]})
-    tf_df = transform_data(df, transformations={"nickname": "uppercase"})
+def test_tranform_logic_missing_column_is_skipped(caplog, name_only_df):
+    tf_df = transform_data(name_only_df, transformations={"nickname": "uppercase"})
     assert list(tf_df.columns) == ["name"]
     assert "not found in data" in caplog.text
 
@@ -152,18 +144,16 @@ def test_tranform_logic_duration(trips_df):
     assert tf_df["trip_duration_minutes"].tolist() == [30.0, 60.0, 30.0, 30.0]
 
 
-def test_calculate_duration_units():
-    start = pd.Series(["2024-01-01 10:00:00"])
-    end = pd.Series(["2024-01-01 12:00:00"])
+def test_calculate_duration_units(two_hour_span):
+    start, end = two_hour_span
     assert calculate_duration(start, end, "seconds").tolist() == [7200.0]
     assert calculate_duration(start, end, "minutes").tolist() == [120.0]
     assert calculate_duration(start, end, "hours").tolist() == [2.0]
     assert calculate_duration(start, end, "days").tolist() == [2 / 24]
 
 
-def test_calculate_duration_rejects_unknown_unit():
-    start = pd.Series(["2024-01-01 10:00:00"])
-    end = pd.Series(["2024-01-01 12:00:00"])
+def test_calculate_duration_rejects_unknown_unit(two_hour_span):
+    start, end = two_hour_span
     with pytest.raises(ValueError, match="Unsupported duration unit"):
         calculate_duration(start, end, "fortnights")
 
