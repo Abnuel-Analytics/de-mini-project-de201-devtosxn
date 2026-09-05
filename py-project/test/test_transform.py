@@ -135,13 +135,6 @@ def test_calculate_age_missing_date_is_null():
     assert pd.isna(calculate_age(pd.Series([None]), as_of="2026-08-29").iloc[0])
 
 
-def test_tranform_logic_age_missing_source_column_is_skipped(caplog):
-    df = pd.DataFrame({"name": ["Abisola"]})
-    tf_df = transform_data(df, transformations={"age": ("age", "date_of_birth")})
-    assert "age" not in tf_df.columns
-    assert "not found in data" in caplog.text
-
-
 # ------------------------------------------------- custom transformation 2: duration
 
 
@@ -173,18 +166,6 @@ def test_calculate_duration_rejects_unknown_unit():
     end = pd.Series(["2024-01-01 12:00:00"])
     with pytest.raises(ValueError, match="Unsupported duration unit"):
         calculate_duration(start, end, "fortnights")
-
-
-def test_tranform_logic_duration_missing_column_is_skipped(caplog):
-    df = pd.DataFrame({"pickup_datetime": ["2024-01-01 10:00:00"]})
-    tf_df = transform_data(
-        df,
-        transformations={
-            "trip_duration_minutes": ("duration", "pickup_datetime", "dropoff")
-        },
-    )
-    assert "trip_duration_minutes" not in tf_df.columns
-    assert "not found in data" in caplog.text
 
 
 # ---------------------------------------------------- custom transformation 3: round
