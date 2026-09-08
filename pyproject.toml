@@ -1,7 +1,27 @@
 [project]
 name = "de-mini-project-de201-devtosxn"
 version = "0.1.0"
-requires-python = ">=3.13"
+description = "DE201 mini-project — Python ETL pipeline (extract, transform, load)."
+readme = "README.md"
+requires-python = ">=3.12"
 dependencies = [
+    "ipykernel>=7.3.0",
     "pandas>=3.0.5",
+    "pyarrow>=25.0.1",
+    "pytest>=9.1.1",
+    "requests>=2.34.2",
+    "sqlalchemy>=2.0.52",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["py-project/src"]
+
+[tool.pytest.ini_options]
+# Tests import the pipeline modules as `src.<module>`, so `py-project` is the
+# import root. testpaths keeps `pytest` working from the repository root.
+pythonpath = ["py-project"]
+testpaths = ["py-project/tests"]
