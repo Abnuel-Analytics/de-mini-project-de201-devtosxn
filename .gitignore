@@ -21,6 +21,8 @@ dbt_packages/
 logs/
 # Data
 data/
+# jafgen output: 87MB of generated CSVs, regenerate with `uv run jafgen`
+jaffle-data/
 *.parquet
 # OS/editor
 .DS_Store
