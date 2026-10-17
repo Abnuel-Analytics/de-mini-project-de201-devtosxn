@@ -47,8 +47,26 @@ def profile_column(series):
     non_null = max(len(values), 1)  # guards the all-null column
     nulls = len(series) - len(values)
     distinct = values.nunique()
+    kind = infer_type(values)
+    stats = {}
+    if kind in ("integer", "float"):
+        numbers = pd.to_numeric(values)
+        stats = {
+            "min": float(numbers.min()),
+            "max": float(numbers.max()),
+            "mean": round(float(numbers.mean()), 4),
+            "median": float(numbers.median()),
+        }
+    elif kind != "empty":
+        lengths = values.str.len()
+        stats = {
+            "min_length": int(lengths.min()),
+            "max_length": int(lengths.max()),
+            "avg_length": round(float(lengths.mean()), 2),
+        }
     return {
-        "type": infer_type(values),
+        "type": kind,
+        **stats,
         "null_count": nulls,
         "null_pct": round(100 * nulls / rows, 2),
         "high_null": nulls / rows > 0.5,

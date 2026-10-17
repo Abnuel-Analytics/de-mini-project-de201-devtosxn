@@ -67,3 +67,28 @@ def test_profile_column_reports_type():
     assert (
         profiler.profile_column(pd.Series(["60614", "60614-1234"]))["type"] == "mixed"
     )
+
+
+def test_profile_column_numeric_stats():
+    result = profiler.profile_column(pd.Series(["1", "2", "4", None]))
+
+    assert (result["min"], result["max"], result["median"]) == (1.0, 4.0, 2.0)
+    assert result["mean"] == 2.3333
+    assert "min_length" not in result
+
+
+def test_profile_column_string_length_stats():
+    result = profiler.profile_column(pd.Series(["ab", "abcd", None]))
+
+    assert (result["min_length"], result["max_length"], result["avg_length"]) == (
+        2,
+        4,
+        3.0,
+    )
+    assert "min" not in result
+
+
+def test_profile_column_all_null_has_no_stats():
+    result = profiler.profile_column(pd.Series([None, None], dtype=object))
+
+    assert not {"min", "min_length"} & result.keys()
