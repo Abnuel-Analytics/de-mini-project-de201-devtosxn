@@ -1,5 +1,9 @@
 """Profile a raw CSV: per-column quality metrics for the Chicago Food Inspections data."""
 
+import json
+import sys
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -74,3 +78,30 @@ def profile_column(series):
         "distinct_pct": round(100 * distinct / non_null, 2),
         "top_values": values.value_counts().head(10).to_dict(),
     }
+
+
+def main(path, out="output/profile_results.json"):
+    """Profile the CSV at path, print a summary and write the full results as JSON."""
+    df = load_csv(path)
+    result = {
+        "file_size_bytes": Path(path).stat().st_size,
+        "row_count": len(df),
+        "column_count": len(df.columns),
+        "duplicate_rows": int(df.duplicated().sum()),
+        "columns": {name: profile_column(df[name]) for name in df},
+    }
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    Path(out).write_text(json.dumps(result, indent=2))
+
+    print(
+        f"{result['row_count']} rows, {result['column_count']} columns, {result['duplicate_rows']} duplicate rows"
+    )
+    for name, col in result["columns"].items():
+        flag = "  HIGH NULL" if col["high_null"] else ""
+        print(
+            f"{name:<22}{col['type']:<9}nulls {col['null_pct']:>6}%  distinct {col['distinct_count']}{flag}"
+        )
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

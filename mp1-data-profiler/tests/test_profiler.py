@@ -1,3 +1,4 @@
+import json
 import pytest
 import pandas as pd
 import profiler
@@ -92,3 +93,17 @@ def test_profile_column_all_null_has_no_stats():
     result = profiler.profile_column(pd.Series([None, None], dtype=object))
 
     assert not {"min", "min_length"} & result.keys()
+
+
+def test_main_writes_profile_json(tmp_path):
+    csv = tmp_path / "in.csv"
+    csv.write_text("id,name\n1,a\n1,a\n2,\n")
+    out = tmp_path / "out" / "profile.json"
+
+    profiler.main(csv, out)
+
+    result = json.loads(out.read_text())
+    assert result["row_count"] == 3
+    assert result["duplicate_rows"] == 1
+    assert result["columns"]["name"]["null_count"] == 1
+    assert result["columns"]["id"]["type"] == "integer"
