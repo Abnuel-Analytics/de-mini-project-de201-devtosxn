@@ -16,7 +16,9 @@ def load_csv(path):
     return df.mask(df.apply(lambda col: col.str.strip() == ""))
 
 
-DATE_PATTERN = r"\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?"
+DATE_PATTERN = (
+    r"\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?"
+)
 
 
 def infer_type(values):

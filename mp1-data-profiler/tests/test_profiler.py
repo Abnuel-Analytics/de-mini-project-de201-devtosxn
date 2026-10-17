@@ -50,7 +50,7 @@ def test_profile_column_handles_all_null_and_empty():
         ([], "empty"),
         (["1", "-20", "007"], "integer"),
         (["1", "2.5"], "float"),
-        (["03/14/2012", "2012-03-14"], "date"),
+        (["03/14/2012", "2012-03-14", "2010-01-05T00:00:00.000"], "date"),
         (["60614", "60614-1234"], "mixed"),
         (["1", "03/14/2012"], "mixed"),
         (["Restaurant", "Grocery Store"], "string"),
