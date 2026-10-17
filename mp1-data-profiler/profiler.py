@@ -12,6 +12,31 @@ def load_csv(path):
     return df.mask(df.apply(lambda col: col.str.strip() == ""))
 
 
+DATE_PATTERN = r"\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?"
+
+
+def infer_type(values):
+    """Classify non-null text values as empty, integer, float, date, mixed or string.
+
+    The first rule that matches wins. "mixed" means some values look numeric or
+    date-like and others do not, which is the shape of a column that needs cleaning.
+    """
+    if values.empty:
+        return "empty"
+    is_integer = values.str.fullmatch(r"[+-]?\d+")
+    is_number = pd.to_numeric(values, errors="coerce").notna()
+    is_date = values.str.fullmatch(DATE_PATTERN)
+    if is_integer.all():
+        return "integer"
+    if is_number.all():
+        return "float"
+    if is_date.all():
+        return "date"
+    if (is_number | is_date).any():
+        return "mixed"
+    return "string"
+
+
 def profile_column(series):
     """Return quality metrics for one column; percentages are 0 to 100.
 
@@ -23,6 +48,7 @@ def profile_column(series):
     nulls = len(series) - len(values)
     distinct = values.nunique()
     return {
+        "type": infer_type(values),
         "null_count": nulls,
         "null_pct": round(100 * nulls / rows, 2),
         "high_null": nulls / rows > 0.5,

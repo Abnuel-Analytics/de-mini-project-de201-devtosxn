@@ -1,3 +1,4 @@
+import pytest
 import pandas as pd
 import profiler
 
@@ -40,3 +41,29 @@ def test_profile_column_handles_all_null_and_empty():
     assert all_null["distinct_count"] == 0
     assert all_null["top_values"] == {}
     assert empty["null_count"] == 0
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([], "empty"),
+        (["1", "-20", "007"], "integer"),
+        (["1", "2.5"], "float"),
+        (["03/14/2012", "2012-03-14"], "date"),
+        (["60614", "60614-1234"], "mixed"),
+        (["1", "03/14/2012"], "mixed"),
+        (["Restaurant", "Grocery Store"], "string"),
+    ],
+)
+def test_infer_type(values, expected):
+    assert profiler.infer_type(pd.Series(values, dtype=object)) == expected
+
+
+def test_profile_column_reports_type():
+    assert (
+        profiler.profile_column(pd.Series([None, None], dtype=object))["type"]
+        == "empty"
+    )
+    assert (
+        profiler.profile_column(pd.Series(["60614", "60614-1234"]))["type"] == "mixed"
+    )
