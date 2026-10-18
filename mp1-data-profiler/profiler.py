@@ -1,4 +1,14 @@
-"""Profile a raw CSV: per-column quality metrics for the Chicago Food Inspections data."""
+"""Profile a CSV file and report on the quality of each column.
+
+How the code flows:
+    main()            runs the steps below, then prints a summary and saves a JSON file
+      load_csv()        reads the file as text
+      profile_column()  measures one column (called once per column)
+        infer_type()      works out what kind of data the column holds
+        percent()         turns a count into a percentage
+
+Run it with:  python profiler.py data/food-inspections.csv
+"""
 
 import json
 import sys
@@ -6,102 +16,134 @@ from pathlib import Path
 
 import pandas as pd
 
+# Dates look like 03/14/2012 or 2012-03-14, optionally followed by a time.
+US_DATE = r"\d{1,2}/\d{1,2}/\d{4}"
+ISO_DATE = r"\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?"
+DATE_PATTERN = f"{US_DATE}|{ISO_DATE}"
+
 
 def load_csv(path):
-    """Read every cell as text so nothing is coerced before it is measured.
+    """Read a CSV file with every value kept as text.
 
-    Empty and whitespace-only cells become null; all other cells are kept as-is.
+    We keep everything as text on purpose. If pandas guessed the types for us,
+    a zip code like "007" would silently become the number 7 and we would never
+    see the problem. Blank cells (including cells with only spaces) become null.
     """
     df = pd.read_csv(path, dtype=str, keep_default_na=False)
-    return df.mask(df.apply(lambda col: col.str.strip() == ""))
+    is_blank = df.apply(lambda column: column.str.strip() == "")
+    return df.mask(is_blank)
 
 
-DATE_PATTERN = (
-    r"\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?"
-)
+def percent(part, whole):
+    """Return part as a percentage of whole, rounded to 2 places (0 if whole is 0)."""
+    if whole == 0:
+        return 0.0
+    return round(100 * part / whole, 2)
 
 
 def infer_type(values):
-    """Classify non-null text values as empty, integer, float, date, mixed or string.
+    """Guess what kind of data a column holds, from its non-null text values.
 
-    The first rule that matches wins. "mixed" means some values look numeric or
-    date-like and others do not, which is the shape of a column that needs cleaning.
+    Returns one of these, checking in this order:
+        "empty"    there are no values at all
+        "integer"  every value is a whole number, like 60614
+        "float"    every value is a number, like 41.89
+        "date"     every value looks like a date
+        "mixed"    some values look like numbers or dates and some do not
+        "string"   anything else (plain text)
+
+    "mixed" is the interesting one: it usually means the column needs cleaning.
     """
     if values.empty:
         return "empty"
-    is_integer = values.str.fullmatch(r"[+-]?\d+")
-    is_number = pd.to_numeric(values, errors="coerce").notna()
-    is_date = values.str.fullmatch(DATE_PATTERN)
-    if is_integer.all():
+
+    looks_like_integer = values.str.fullmatch(r"[+-]?\d+")
+    looks_like_number = pd.to_numeric(values, errors="coerce").notna()
+    looks_like_date = values.str.fullmatch(DATE_PATTERN)
+
+    if looks_like_integer.all():
         return "integer"
-    if is_number.all():
+    if looks_like_number.all():
         return "float"
-    if is_date.all():
+    if looks_like_date.all():
         return "date"
-    if (is_number | is_date).any():
+    if (looks_like_number | looks_like_date).any():
         return "mixed"
     return "string"
 
 
 def profile_column(series):
-    """Return quality metrics for one column; percentages are 0 to 100.
+    """Measure one column and return the results as a dictionary.
 
-    distinct_pct is relative to the non-null values, so 100 means every value is unique.
+    `series` is the whole column. `values` is the same column with the blanks
+    removed, because most measurements only make sense on real values.
+
+    The dictionary holds:
+        type, then either min/max/mean/median (numbers)
+                or min_length/max_length/avg_length (text and dates),
+        null_count, null_pct, high_null (True if more than half is blank),
+        distinct_count, distinct_pct (relative to non-blank values),
+        top_values (the 10 most common values and how often each appears).
     """
     values = series.dropna()
-    rows = max(len(series), 1)  # guards the empty frame
-    non_null = max(len(values), 1)  # guards the all-null column
-    nulls = len(series) - len(values)
-    distinct = values.nunique()
-    kind = infer_type(values)
-    stats = {}
-    if kind in ("integer", "float"):
+    null_count = len(series) - len(values)
+    distinct_count = values.nunique()
+    column_type = infer_type(values)
+
+    profile = {"type": column_type}
+
+    if column_type in ("integer", "float"):
         numbers = pd.to_numeric(values)
-        stats = {
-            "min": float(numbers.min()),
-            "max": float(numbers.max()),
-            "mean": round(float(numbers.mean()), 4),
-            "median": float(numbers.median()),
-        }
-    elif kind != "empty":
+        profile["min"] = float(numbers.min())
+        profile["max"] = float(numbers.max())
+        profile["mean"] = round(float(numbers.mean()), 4)
+        profile["median"] = float(numbers.median())
+    elif column_type != "empty":
         lengths = values.str.len()
-        stats = {
-            "min_length": int(lengths.min()),
-            "max_length": int(lengths.max()),
-            "avg_length": round(float(lengths.mean()), 2),
-        }
-    return {
-        "type": kind,
-        **stats,
-        "null_count": nulls,
-        "null_pct": round(100 * nulls / rows, 2),
-        "high_null": nulls / rows > 0.5,
-        "distinct_count": distinct,
-        "distinct_pct": round(100 * distinct / non_null, 2),
-        "top_values": values.value_counts().head(10).to_dict(),
-    }
+        profile["min_length"] = int(lengths.min())
+        profile["max_length"] = int(lengths.max())
+        profile["avg_length"] = round(float(lengths.mean()), 2)
+
+    profile["null_count"] = null_count
+    profile["null_pct"] = percent(null_count, len(series))
+    profile["high_null"] = null_count > len(series) / 2
+    profile["distinct_count"] = distinct_count
+    profile["distinct_pct"] = percent(distinct_count, len(values))
+    profile["top_values"] = values.value_counts().head(10).to_dict()
+    return profile
 
 
 def main(path, out="output/profile_results.json"):
-    """Profile the CSV at path, print a summary and write the full results as JSON."""
+    """Profile every column in the CSV at `path`.
+
+    Prints a short summary to the screen and saves the full results to `out`
+    as JSON, so the numbers can be checked later.
+    """
     df = load_csv(path)
-    result = {
+
+    results = {
         "file_size_bytes": Path(path).stat().st_size,
         "row_count": len(df),
         "column_count": len(df.columns),
-        "duplicate_rows": int(df.duplicated().sum()),
+        "duplicate_rows": int(
+            df.duplicated().sum()
+        ),  # rows identical to an earlier row
         "columns": {name: profile_column(df[name]) for name in df},
     }
+
     Path(out).parent.mkdir(parents=True, exist_ok=True)
-    Path(out).write_text(json.dumps(result, indent=2) + "\n")
+    Path(out).write_text(json.dumps(results, indent=2) + "\n")
 
     print(
-        f"{result['row_count']} rows, {result['column_count']} columns, {result['duplicate_rows']} duplicate rows"
+        f"{results['row_count']} rows, {results['column_count']} columns, "
+        f"{results['duplicate_rows']} duplicate rows"
     )
-    for name, col in result["columns"].items():
-        flag = "  HIGH NULL" if col["high_null"] else ""
+    for name, column in results["columns"].items():
+        high_null_flag = "  HIGH NULL" if column["high_null"] else ""
         print(
-            f"{name:<22}{col['type']:<9}nulls {col['null_pct']:>6}%  distinct {col['distinct_count']}{flag}"
+            f"{name:<22}{column['type']:<9}"
+            f"nulls {column['null_pct']:>6}%  distinct {column['distinct_count']}"
+            f"{high_null_flag}"
         )
 
 
