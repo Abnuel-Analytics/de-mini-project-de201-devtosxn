@@ -2,9 +2,11 @@
 
 Profiles the Chicago Food Inspections CSV and reports on its quality.
 
-Download the CSV from Kaggle into `data/` (gitignored), then:
+Download [the dataset from Kaggle](https://www.kaggle.com/datasets/chicago/chicago-food-inspections), unzip `food-inspections.csv` into `data/` (gitignored), then:
 
 ```bash
 pip install -r requirements.txt
-python profiler.py data/<file>.csv
+python profiler.py data/food-inspections.csv
 ```
+
+Results are written to `output/profile_results.json`.

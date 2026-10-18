@@ -93,7 +93,7 @@ def main(path, out="output/profile_results.json"):
         "columns": {name: profile_column(df[name]) for name in df},
     }
     Path(out).parent.mkdir(parents=True, exist_ok=True)
-    Path(out).write_text(json.dumps(result, indent=2))
+    Path(out).write_text(json.dumps(result, indent=2) + "\n")
 
     print(
         f"{result['row_count']} rows, {result['column_count']} columns, {result['duplicate_rows']} duplicate rows"
