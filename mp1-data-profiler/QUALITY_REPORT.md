@@ -67,3 +67,52 @@ PostgreSQL, sized from the profile's maximum lengths with some headroom.
 | `Longitude` | float | `DOUBLE PRECISION` | About 15 significant digits. |
 | `Location` | string | not loaded | Swapped coordinates (issue 3). |
 | `Historical Wards 2003-2015`, `Zip Codes`, `Community Areas`, `Census Tracts`, `Wards` | empty | not loaded | 100% null (issue 2). |
+
+## Preliminary schema proposal
+
+Two tables. `inspection_violations` is split out because one inspection has up to 34 findings (issue 6). Nullable follows the profile's null counts, after removing the 149 duplicates (issue 1) and the cleaning below.
+
+### Table `inspections` (one row per inspection)
+
+| Column | Type | Nullable | Rationale |
+|--------|------|----------|-----------|
+| `inspection_id` | `INTEGER` | no | Primary key. 196,676 distinct values once the 149 duplicates are removed. |
+| `dba_name` | `VARCHAR(100)` | no | 0 nulls. Trim whitespace on load. |
+| `aka_name` | `VARCHAR(100)` | yes | 2,458 nulls (1.25%). |
+| `license_no` | `INTEGER` | yes | 17 nulls plus 519 placeholder `0` values, both stored as null (issue 7). |
+| `facility_type` | `VARCHAR(60)` | yes | 4,768 nulls (2.42%). Standardise case (issue 5). |
+| `risk` | `VARCHAR(20)` | yes | 69 nulls. `All` (31 rows) becomes null (issue 8). |
+| `address` | `VARCHAR(60)` | yes | 3 nulls. Trim (issue 9). |
+| `city` | `VARCHAR(30)` | yes | 139 nulls. Upper-case and fix typos (issue 4). |
+| `state` | `CHAR(2)` | yes | 42 nulls. |
+| `zip` | `CHAR(5)` | yes | 50 nulls. Text, so leading zeros survive (issue 11). |
+| `inspection_date` | `DATE` | no | 0 nulls. All values are midnight. |
+| `inspection_type` | `VARCHAR(60)` | yes | 1 null. Standardise case (issue 5). |
+| `results` | `VARCHAR(30)` | no | 0 nulls. Seven distinct values, so it could become a lookup table later. |
+| `latitude` | `DOUBLE PRECISION` | yes | 690 nulls, always together with `longitude`. |
+| `longitude` | `DOUBLE PRECISION` | yes | Same 690 nulls. |
+
+### Table `inspection_violations` (one row per finding)
+
+| Column | Type | Nullable | Rationale |
+|--------|------|----------|-----------|
+| `inspection_id` | `INTEGER` | no | Foreign key to `inspections`. |
+| `position` | `SMALLINT` | no | Order within the original cell, 1 to 34. Together with `inspection_id` it is the primary key. |
+| `description` | `TEXT` | no | One finding, split on ` \| `. Inspections with a null `Violations` cell get no rows here. |
+
+Pulling the numeric violation code out of each description is a follow-up. I have not checked that every finding starts with one.
+
+## Columns not to load as they are
+
+| Column | Why | What to do |
+|--------|-----|------------|
+| `Historical Wards 2003-2015`, `Zip Codes`, `Community Areas`, `Census Tracts`, `Wards` | 100% null (issue 2). | Drop all five. |
+| `Location` | Latitude and longitude are swapped inside it (issue 3). | Drop it. Use `Latitude` and `Longitude`. |
+| `Violations` | Up to 34 findings in one cell, up to 11,620 characters (issue 6). | Split into `inspection_violations`. |
+| `Inspection ID` | 149 values appear twice (issue 1). | Remove the duplicate rows before using it as a key. |
+| `License #` | `0` is a placeholder in 519 rows (issue 7). | Convert `0` to null. |
+| `Zip` | A code that profiles as an integer (issue 11). | Load as `CHAR(5)`, never `INT`. |
+| `City` | 71 spellings of mostly one city (issue 4). | Upper-case, fix typos. |
+| `Risk` | Contains `All` in 31 rows (issue 8). | Convert `All` to null. |
+| `Inspection Type`, `Facility Type` | Case-only duplicates (issue 5). | Lower-case and trim for matching, then pick one display form. |
+| `Address` | Padding in 99.7% of values (issue 9). | Trim on load. |
