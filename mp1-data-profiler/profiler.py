@@ -14,12 +14,8 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-
-# Dates look like 03/14/2012 or 2012-03-14, optionally followed by a time.
-US_DATE = r"\d{1,2}/\d{1,2}/\d{4}"
-ISO_DATE = r"\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?"
-DATE_PATTERN = f"{US_DATE}|{ISO_DATE}"
 
 
 def load_csv(path):
@@ -46,9 +42,9 @@ def infer_type(values):
 
     Returns one of these, checking in this order:
         "empty"    there are no values at all
-        "integer"  every value is a whole number, like 60614
+        "integer"  every value is a number with no fractional part, like 60614 or 23.0
         "float"    every value is a number, like 41.89
-        "date"     every value looks like a date
+        "date"     every value parses as a real date, in any common format
         "mixed"    some values look like numbers or dates and some do not
         "string"   anything else (plain text)
 
@@ -57,14 +53,12 @@ def infer_type(values):
     if values.empty:
         return "empty"
 
-    looks_like_integer = values.str.fullmatch(r"[+-]?\d+")
-    looks_like_number = pd.to_numeric(values, errors="coerce").notna()
-    looks_like_date = values.str.fullmatch(DATE_PATTERN)
+    numbers = pd.to_numeric(values, errors="coerce")
+    looks_like_number = numbers.notna() & np.isfinite(numbers)
+    looks_like_date = pd.to_datetime(values, errors="coerce", format="mixed").notna()
 
-    if looks_like_integer.all():
-        return "integer"
     if looks_like_number.all():
-        return "float"
+        return "integer" if (numbers % 1 == 0).all() else "float"
     if looks_like_date.all():
         return "date"
     if (looks_like_number | looks_like_date).any():

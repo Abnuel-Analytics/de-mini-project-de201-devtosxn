@@ -49,8 +49,13 @@ def test_profile_column_handles_all_null_and_empty():
     [
         ([], "empty"),
         (["1", "-20", "007"], "integer"),
+        (["23.0", "24"], "integer"),
         (["1", "2.5"], "float"),
+        (["nan", "inf"], "string"),
         (["03/14/2012", "2012-03-14", "2010-01-05T00:00:00.000"], "date"),
+        (["14.03.2012", "2012/03/14"], "date"),
+        (["0/12/2021T12:30:53"], "string"),
+        (["13/45/2021"], "string"),
         (["60614", "60614-1234"], "mixed"),
         (["1", "03/14/2012"], "mixed"),
         (["Restaurant", "Grocery Store"], "string"),
