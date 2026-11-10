@@ -40,6 +40,8 @@ def percent(part, whole):
 def infer_type(values):
     """Guess what kind of data a column holds, from its non-null text values.
 
+    values: a pandas Series of strings with the nulls already dropped.
+
     Returns one of these, checking in this order:
         "empty"    there are no values at all
         "integer"  every value is a number with no fractional part, like 60614 or 23.0
