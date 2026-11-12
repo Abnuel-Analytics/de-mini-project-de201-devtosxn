@@ -23,5 +23,5 @@ packages = ["py-project/src"]
 [tool.pytest.ini_options]
 # Tests import the pipeline modules as `src.<module>`, so `py-project` is the
 # import root. testpaths keeps `pytest` working from the repository root.
-pythonpath = ["py-project"]
-testpaths = ["py-project/tests"]
+pythonpath = ["py-project", "mp1-data-profiler"]
+testpaths = ["py-project/tests", "mp1-data-profiler/tests"]
